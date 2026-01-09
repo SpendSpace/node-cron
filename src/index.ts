@@ -31,7 +31,7 @@ async function runBudgetAlerts() {
 }
 
 // Run daily at 12:30 UTC (6:30am CST / 7:30am CDT)
-cron.schedule("50 13 * * *", runBudgetAlerts);
+cron.schedule("55 13 * * *", runBudgetAlerts);
 
 console.log(
   `[${new Date().toISOString()}] Cron service started. Budget alerts scheduled for 12:30 UTC (6:30am CST) daily.`
