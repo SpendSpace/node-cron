@@ -12,7 +12,7 @@ async function runBudgetAlerts() {
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/v1/budget-alerts/cron/run`, {
+    const response = await fetch(`${API_URL}/budget-alerts/cron/run`, {
       method: "POST",
       headers: {
         "x-cron-secret": CRON_SECRET,
@@ -31,7 +31,7 @@ async function runBudgetAlerts() {
 }
 
 // Run daily at 12:30 UTC (6:30am CST / 7:30am CDT)
-cron.schedule("30 12 * * *", runBudgetAlerts);
+cron.schedule("40 12 * * *", runBudgetAlerts);
 
 console.log(
   `[${new Date().toISOString()}] Cron service started. Budget alerts scheduled for 12:30 UTC (6:30am CST) daily.`
