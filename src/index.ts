@@ -26,7 +26,7 @@ async function runBudgetAlerts() {
     const data = await response.json();
     console.log(
       `[${new Date().toISOString()}] Budget alert result:`,
-      JSON.stringify(data)
+      JSON.stringify(data),
     );
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Budget alert error:`, error);
@@ -57,13 +57,13 @@ async function runSimpleFINSync() {
           "x-cron-secret": CRON_SECRET,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     const data = await response.json();
     console.log(
       `[${new Date().toISOString()}] SimpleFIN sync result:`,
-      JSON.stringify(data)
+      JSON.stringify(data),
     );
   } catch (error) {
     console.error(`[${new Date().toISOString()}] SimpleFIN sync error:`, error);
@@ -73,6 +73,48 @@ async function runSimpleFINSync() {
 // SimpleFIN daily sync - runs at 6:00 AM UTC (midnight CST)
 cron.schedule("00 06 * * *", runSimpleFINSync);
 
+/**
+ * Weekly Budget Summary Emails
+ * Sends weekly budget summary emails to users who have opted in
+ */
+async function runWeeklyBudgetSummary() {
+  console.log(
+    `[${new Date().toISOString()}] Running weekly budget summary emails...`,
+  );
+
+  if (!CRON_SECRET) {
+    console.error("CRON_SECRET not configured");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${API_URL}/api/zero-budget/weekly-summary/cron`,
+      {
+        method: "POST",
+        headers: {
+          "x-cron-secret": CRON_SECRET,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const data = await response.json();
+    console.log(
+      `[${new Date().toISOString()}] Weekly budget summary result:`,
+      JSON.stringify(data),
+    );
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] Weekly budget summary error:`,
+      error,
+    );
+  }
+}
+
+// Weekly budget summary - runs every Sunday at 14:00 UTC (8:00 AM CST)
+cron.schedule("00 14 * * 0", runWeeklyBudgetSummary);
+
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC, SimpleFIN sync: 6:00 UTC daily.`
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: 6:00 UTC daily, Weekly summary: 14:00 UTC Sundays.`,
 );
