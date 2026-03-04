@@ -70,8 +70,8 @@ async function runSimpleFINSync() {
   }
 }
 
-// SimpleFIN daily sync - runs at 6:00 AM UTC (midnight CST)
-cron.schedule("00 06 * * *", runSimpleFINSync);
+// SimpleFIN hourly sync - runs at the top of every hour
+cron.schedule("00 * * * *", runSimpleFINSync);
 
 /**
  * Weekly Budget Summary Emails
@@ -116,5 +116,5 @@ async function runWeeklyBudgetSummary() {
 cron.schedule("00 14 * * 0", runWeeklyBudgetSummary);
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: 6:00 UTC daily, Weekly summary: 14:00 UTC Sundays.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: hourly, Weekly summary: 14:00 UTC Sundays.`,
 );
