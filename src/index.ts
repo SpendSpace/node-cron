@@ -37,11 +37,11 @@ async function runBudgetAlerts() {
 cron.schedule("00 09 * * *", runBudgetAlerts);
 
 /**
- * SimpleFIN Daily Sync
- * Syncs transactions for all SimpleFIN connections (international users)
+ * SimpleFIN Hourly Sync
+ * Syncs transactions for all SimpleFIN connections and sends alerts for failures
  */
 async function runSimpleFINSync() {
-  console.log(`[${new Date().toISOString()}] Running SimpleFIN daily sync...`);
+  console.log(`[${new Date().toISOString()}] Running SimpleFIN sync...`);
 
   if (!CRON_SECRET) {
     console.error("CRON_SECRET not configured");
@@ -60,11 +60,43 @@ async function runSimpleFINSync() {
       },
     );
 
-    const data = await response.json();
+    const data = (await response.json()) as {
+      success: boolean;
+      data?: { failures?: Array<unknown> };
+    };
     console.log(
       `[${new Date().toISOString()}] SimpleFIN sync result:`,
       JSON.stringify(data),
     );
+
+    // Send connection alerts for any failures
+    if (data.success && data.data?.failures && data.data.failures.length > 0) {
+      console.log(
+        `[${new Date().toISOString()}] Sending connection alerts for ${data.data.failures.length} failure(s)...`,
+      );
+
+      try {
+        const alertResponse = await fetch(`${API_URL}/connection-alerts/send`, {
+          method: "POST",
+          headers: {
+            "x-cron-secret": CRON_SECRET!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ failures: data.data.failures }),
+        });
+
+        const alertData = await alertResponse.json();
+        console.log(
+          `[${new Date().toISOString()}] Connection alert result:`,
+          JSON.stringify(alertData),
+        );
+      } catch (alertError) {
+        console.error(
+          `[${new Date().toISOString()}] Connection alert error:`,
+          alertError,
+        );
+      }
+    }
   } catch (error) {
     console.error(`[${new Date().toISOString()}] SimpleFIN sync error:`, error);
   }
