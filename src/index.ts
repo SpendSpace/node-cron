@@ -120,16 +120,13 @@ async function runWeeklyBudgetSummary() {
   }
 
   try {
-    const response = await fetch(
-      `${API_URL}/api/zero-budget/weekly-summary/cron`,
-      {
-        method: "POST",
-        headers: {
-          "x-cron-secret": CRON_SECRET,
-          "Content-Type": "application/json",
-        },
+    const response = await fetch(`${API_URL}/zero-budget/weekly-summary/cron`, {
+      method: "POST",
+      headers: {
+        "x-cron-secret": CRON_SECRET,
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     const data = await response.json();
     console.log(
