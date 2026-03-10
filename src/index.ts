@@ -106,6 +106,78 @@ async function runSimpleFINSync() {
 cron.schedule("00 * * * *", runSimpleFINSync);
 
 /**
+ * Lunch Flow Hourly Sync
+ * Syncs transactions for all Lunch Flow connections and sends alerts for failures
+ */
+async function runLunchFlowSync() {
+  console.log(`[${new Date().toISOString()}] Running Lunch Flow sync...`);
+
+  if (!CRON_SECRET) {
+    console.error("CRON_SECRET not configured");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${SECURITY_SERVICE_URL}/api/lunchflow/cron/sync`,
+      {
+        method: "POST",
+        headers: {
+          "x-cron-secret": CRON_SECRET,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const data = (await response.json()) as {
+      success: boolean;
+      data?: { failures?: Array<unknown> };
+    };
+    console.log(
+      `[${new Date().toISOString()}] Lunch Flow sync result:`,
+      JSON.stringify(data),
+    );
+
+    // Send connection alerts for any failures
+    if (data.success && data.data?.failures && data.data.failures.length > 0) {
+      console.log(
+        `[${new Date().toISOString()}] Sending connection alerts for ${data.data.failures.length} Lunch Flow failure(s)...`,
+      );
+
+      try {
+        const alertResponse = await fetch(`${API_URL}/connection-alerts/send`, {
+          method: "POST",
+          headers: {
+            "x-cron-secret": CRON_SECRET!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ failures: data.data.failures }),
+        });
+
+        const alertData = await alertResponse.json();
+        console.log(
+          `[${new Date().toISOString()}] Connection alert result:`,
+          JSON.stringify(alertData),
+        );
+      } catch (alertError) {
+        console.error(
+          `[${new Date().toISOString()}] Connection alert error:`,
+          alertError,
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] Lunch Flow sync error:`,
+      error,
+    );
+  }
+}
+
+// Lunch Flow hourly sync - runs at 30 minutes past every hour (offset from SimpleFIN)
+cron.schedule("30 * * * *", runLunchFlowSync);
+
+/**
  * Weekly Budget Summary Emails
  * Sends weekly budget summary emails to users who have opted in
  */
@@ -145,5 +217,5 @@ async function runWeeklyBudgetSummary() {
 cron.schedule("00 14 * * 0", runWeeklyBudgetSummary);
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: hourly, Weekly summary: 14:00 UTC Sundays.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: hourly (:00), Lunch Flow sync: hourly (:30), Weekly summary: 14:00 UTC Sundays.`,
 );
