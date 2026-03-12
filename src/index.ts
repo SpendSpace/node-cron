@@ -102,8 +102,8 @@ async function runSimpleFINSync() {
   }
 }
 
-// SimpleFIN hourly sync - runs at the top of every hour
-cron.schedule("00 * * * *", runSimpleFINSync);
+// SimpleFIN sync - runs every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+cron.schedule("00 */6 * * *", runSimpleFINSync);
 
 /**
  * Lunch Flow Hourly Sync
@@ -174,8 +174,8 @@ async function runLunchFlowSync() {
   }
 }
 
-// Lunch Flow hourly sync - runs at 30 minutes past every hour (offset from SimpleFIN)
-cron.schedule("30 * * * *", runLunchFlowSync);
+// Lunch Flow sync - runs every 6 hours at :30 (00:30, 06:30, 12:30, 18:30 UTC)
+cron.schedule("30 */6 * * *", runLunchFlowSync);
 
 /**
  * Weekly Budget Summary Emails
@@ -217,5 +217,5 @@ async function runWeeklyBudgetSummary() {
 cron.schedule("00 14 * * 0", runWeeklyBudgetSummary);
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: hourly (:00), Lunch Flow sync: hourly (:30), Weekly summary: 14:00 UTC Sundays.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays.`,
 );
