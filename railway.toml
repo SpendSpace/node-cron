@@ -4,3 +4,7 @@ builder = "DOCKERFILE"
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+[variables]
+GOOGLE_AI_API_KEY = "${GOOGLE_AI_API_KEY}"
+BLOG_ADMIN_EMAIL = "jlew24asu@gmail.com"
