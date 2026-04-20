@@ -8,7 +8,7 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 const BLOG_ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL || "jlew24asu@gmail.com";
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent";
 
 async function runBudgetAlerts() {
   console.log(`[${new Date().toISOString()}] Running budget alert check...`);
