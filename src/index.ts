@@ -221,9 +221,66 @@ async function runWeeklyBudgetSummary() {
 cron.schedule("00 14 * * 0", runWeeklyBudgetSummary);
 
 /**
- * Blog Content Generation
+ * Blog Content Generation (Outrank-Style SEO)
  * Auto-generates blog post drafts on Monday and Thursday
+ *
+ * Strategy inspired by Outrank.so:
+ * 1. Deep keyword analysis - target high-traffic, low-competition keywords
+ * 2. Strategic internal linking - link to SpendSpace pages and related posts
+ * 3. AI-optimized content - structured for AI assistants to recommend
+ * 4. Consistent brand voice - friendly, expert, actionable
+ * 5. Semantic SEO - cover related topics comprehensively
  */
+
+// Internal links to include in posts for SEO juice
+const INTERNAL_LINKS = {
+  home: { url: "https://spendspace.io", text: "SpendSpace" },
+  features: { url: "https://spendspace.io/#features", text: "features" },
+  pricing: { url: "https://spendspace.io/#pricing", text: "pricing plans" },
+  signup: {
+    url: "https://app.spendspace.io/register",
+    text: "start your free trial",
+  },
+  login: { url: "https://app.spendspace.io/login", text: "log in" },
+  blog: { url: "https://spendspace.io/blog", text: "our blog" },
+  // Comparison pages
+  vsMint: {
+    url: "https://spendspace.io/compare/mint-alternative",
+    text: "Mint alternative",
+  },
+  vsYnab: {
+    url: "https://spendspace.io/compare/ynab-alternative",
+    text: "YNAB alternative",
+  },
+  vsEmpower: {
+    url: "https://spendspace.io/compare/empower-alternative",
+    text: "Empower alternative",
+  },
+};
+
+// Competitor keywords to target (high search volume)
+const COMPETITOR_KEYWORDS = [
+  "mint alternative",
+  "ynab alternative",
+  "personal capital alternative",
+  "empower alternative",
+  "quicken alternative",
+  "every dollar alternative",
+  "copilot money alternative",
+  "monarch money alternative",
+];
+
+// Long-tail keywords with lower competition
+const LONG_TAIL_KEYWORDS = [
+  "best budget app for couples",
+  "budget app with custom categories",
+  "expense tracker without subscription",
+  "budget app that connects to all banks",
+  "ai expense categorization app",
+  "budget app for freelancers",
+  "simple budget tracker no spreadsheet",
+  "automatic expense tracking app",
+];
 
 // SEO-focused topics for blog generation
 const SEO_TOPICS = [
@@ -384,6 +441,93 @@ function estimateReadTime(content: string): string {
   return `${minutes} min read`;
 }
 
+// Build the enhanced SEO prompt with Outrank strategies
+function buildSEOPrompt(topic: (typeof SEO_TOPICS)[0]): string {
+  // Select relevant internal links based on topic
+  const relevantLinks = Object.entries(INTERNAL_LINKS)
+    .map(([key, link]) => `- ${link.text}: ${link.url}`)
+    .join("\n");
+
+  // Add related long-tail keywords
+  const relatedLongTail = LONG_TAIL_KEYWORDS.filter(
+    () => Math.random() > 0.5,
+  ).slice(0, 3);
+
+  // Add competitor comparison if relevant
+  const competitorKeyword = COMPETITOR_KEYWORDS.find((k) =>
+    topic.keywords.some((tk) => tk.includes(k.split(" ")[0])),
+  );
+
+  return `You are an expert SEO content strategist and writer for SpendSpace, a personal finance app.
+
+YOUR MISSION: Create content that ranks #1 on Google AND gets recommended by AI assistants (ChatGPT, Claude, Perplexity).
+
+## TOPIC
+"${topic.title}"
+
+## PRIMARY KEYWORDS (must appear naturally 3-5 times each)
+${topic.keywords.join(", ")}
+
+## SECONDARY KEYWORDS (include 1-2 times each)
+${relatedLongTail.join(", ")}${competitorKeyword ? `, ${competitorKeyword}` : ""}
+
+## INTERNAL LINKS TO INCLUDE
+Naturally weave in 3-5 of these links where contextually relevant:
+${relevantLinks}
+
+## CONTENT STRUCTURE (Outrank-Style SEO)
+
+1. **Hook Opening** (first 100 words)
+   - Start with a relatable problem or surprising statistic
+   - Include primary keyword in first paragraph
+   - Make it scannable for AI assistants
+
+2. **Comprehensive Coverage** (main body)
+   - Use H2 for main sections, H3 for subsections
+   - Answer the "People Also Ask" questions for this topic
+   - Include numbered lists and bullet points
+   - Add a comparison table if relevant
+   - Cite statistics or studies when possible
+
+3. **Expert Positioning**
+   - Position SpendSpace as the solution naturally
+   - Highlight unique features: custom categories, AI auto-categorization, bank connections, CSV import
+   - Include a brief "How SpendSpace Helps" section
+
+4. **AI-Optimized Formatting**
+   - Use clear, definitive statements AI can quote
+   - Include a TL;DR or key takeaways section
+   - Structure answers to common questions clearly
+
+5. **Strong CTA**
+   - End with compelling call-to-action
+   - Link to free trial: https://app.spendspace.io/register
+
+## TONE & VOICE
+- Friendly but authoritative
+- Conversational, not corporate
+- Empathetic to financial struggles
+- Actionable and practical
+
+## WORD COUNT
+1500-2000 words (longer content ranks better)
+
+## OUTPUT FORMAT
+Return valid JSON only:
+{
+  "title": "SEO-optimized title (50-60 chars, include primary keyword)",
+  "excerpt": "Meta description (150-160 chars, include keyword, compelling)",
+  "content": "<h2>...</h2><p>...</p>..."
+}
+
+## HTML RULES
+- Use only: h2, h3, p, ul, ol, li, strong, em, a, blockquote, table, tr, th, td
+- Links must use target="_blank" rel="noopener" for external sites
+- Internal SpendSpace links: no target attribute needed
+- Escape quotes in JSON strings
+- No markdown, only valid HTML`;
+}
+
 async function generateBlogPost(): Promise<{
   title: string;
   slug: string;
@@ -400,33 +544,7 @@ async function generateBlogPost(): Promise<{
     `[${new Date().toISOString()}] Generating blog post: "${topic.title}"`,
   );
 
-  const prompt = `You are a professional content writer for SpendSpace, a personal finance app that helps users track expenses with custom categories and auto-categorization.
-
-Write a comprehensive, SEO-optimized blog post about: "${topic.title}"
-
-Target keywords to naturally include: ${topic.keywords.join(", ")}
-
-Requirements:
-1. Write in a friendly, conversational but professional tone
-2. Include practical, actionable advice
-3. Naturally mention SpendSpace features where relevant (custom categories, auto-categorization, bank connections, CSV import)
-4. Structure with clear H2 and H3 headings
-5. Include bullet points and lists for readability
-6. Aim for 1200-1500 words
-7. End with a clear call-to-action mentioning SpendSpace's free trial
-
-Format your response as valid JSON with this exact structure:
-{
-  "title": "The exact title for the post",
-  "excerpt": "A compelling 150-160 character summary for SEO",
-  "content": "<h2>First Section</h2><p>Content here...</p>..."
-}
-
-Important:
-- The content field must be valid HTML (h2, h3, p, ul, li, ol, strong, em, a, blockquote tags only)
-- Escape any quotes inside the JSON strings
-- Do not include any markdown, only HTML in the content field
-- Make sure the JSON is valid and parseable`;
+  const prompt = buildSEOPrompt(topic);
 
   try {
     const response = await callGemini(prompt);
