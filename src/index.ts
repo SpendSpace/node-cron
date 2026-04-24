@@ -1,5 +1,10 @@
 import cron from "node-cron";
+import express from "express";
 
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 3000;
 const API_URL = process.env.API_URL || "https://api.spendspace.io";
 const SECURITY_SERVICE_URL =
   process.env.SECURITY_SERVICE_URL ||
@@ -647,9 +652,9 @@ async function sendBlogNotificationEmail(post: {
   }
 }
 
-async function runBlogGeneration() {
+async function runBlogGeneration(autoPublish: boolean = false) {
   console.log(
-    `[${new Date().toISOString()}] Running blog content generation...`,
+    `[${new Date().toISOString()}] Running blog content generation (autoPublish: ${autoPublish})...`,
   );
 
   if (!GOOGLE_AI_API_KEY) {
@@ -667,7 +672,7 @@ async function runBlogGeneration() {
         `[${new Date().toISOString()}] Blog post generated: "${post.title}"`,
       );
 
-      // Store the draft via API (we'll create this endpoint)
+      // Store the draft via API
       try {
         const storeResponse = await fetch(`${API_URL}/blog/drafts`, {
           method: "POST",
@@ -686,30 +691,39 @@ async function runBlogGeneration() {
             image:
               "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&q=80",
             tags: post.tags,
-            published: false,
+            published: autoPublish,
             content: post.content,
           }),
         });
 
         if (storeResponse.ok) {
+          const result = (await storeResponse.json()) as {
+            data?: { id?: number };
+          };
           console.log(
-            `[${new Date().toISOString()}] Draft stored successfully`,
+            `[${new Date().toISOString()}] Draft stored successfully (id: ${result.data?.id})`,
           );
+
+          // If auto-publish, also publish to marketing site
+          if (autoPublish) {
+            await publishToMarketingSite(post);
+          }
         } else {
-          // If API storage fails, just log the draft details
           console.log(
-            `[${new Date().toISOString()}] Draft storage API not available - draft details logged`,
+            `[${new Date().toISOString()}] Draft storage failed: ${await storeResponse.text()}`,
           );
-          console.log(`Draft slug: ${post.slug}`);
         }
-      } catch {
+      } catch (err) {
         console.log(
-          `[${new Date().toISOString()}] Draft storage API not available`,
+          `[${new Date().toISOString()}] Draft storage API error:`,
+          err,
         );
       }
 
-      // Send notification email
-      await sendBlogNotificationEmail(post);
+      // Send notification email (only for drafts, not auto-publish)
+      if (!autoPublish) {
+        await sendBlogNotificationEmail(post);
+      }
     }
   } catch (error) {
     console.error(
@@ -719,9 +733,124 @@ async function runBlogGeneration() {
   }
 }
 
+async function publishToMarketingSite(post: {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  tags: string[];
+  date: string;
+  readTime: string;
+}) {
+  console.log(
+    `[${new Date().toISOString()}] Auto-publishing to marketing site: ${post.slug}`,
+  );
+
+  try {
+    // Call the marketing site's publish endpoint
+    const publishResponse = await fetch(`${API_URL}/blog/publish`, {
+      method: "POST",
+      headers: {
+        "x-cron-secret": CRON_SECRET || "",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        slug: post.slug,
+        title: post.title,
+        excerpt: post.excerpt,
+        date: post.date,
+        author: "SpendSpace Team",
+        category: post.category,
+        readTime: post.readTime,
+        image:
+          "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&q=80",
+        tags: post.tags,
+        content: post.content,
+      }),
+    });
+
+    if (publishResponse.ok) {
+      console.log(
+        `[${new Date().toISOString()}] Blog post auto-published successfully`,
+      );
+    } else {
+      console.error(
+        `[${new Date().toISOString()}] Auto-publish failed:`,
+        await publishResponse.text(),
+      );
+    }
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Auto-publish error:`, error);
+  }
+}
+
 // Blog generation - runs Monday and Thursday at 10:00 UTC (4:00 AM CST)
-cron.schedule("00 10 * * 1,4", runBlogGeneration);
+// This saves to drafts for manual review
+cron.schedule("00 10 * * 1,4", () => runBlogGeneration(false));
+
+// Auto-publish blog generation - runs Tuesday and Friday at 10:00 UTC
+// This generates and publishes directly without review
+cron.schedule("00 10 * * 2,5", () => runBlogGeneration(true));
+
+// ============================================
+// HTTP Endpoints for Manual Triggers
+// ============================================
+
+// Middleware to verify cron secret
+const verifyCronSecret = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction,
+) => {
+  const secret = req.headers["x-cron-secret"];
+  if (!secret || secret !== CRON_SECRET) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  next();
+};
+
+// Health check
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+// Manual blog generation (saves as draft)
+app.post("/trigger/blog", verifyCronSecret, async (req, res) => {
+  console.log(`[${new Date().toISOString()}] Manual blog generation triggered`);
+  try {
+    await runBlogGeneration(false);
+    res.json({ success: true, message: "Blog generation completed" });
+  } catch (error) {
+    console.error("Manual blog generation error:", error);
+    res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
+// Manual blog generation with auto-publish
+app.post("/trigger/blog/publish", verifyCronSecret, async (req, res) => {
+  console.log(
+    `[${new Date().toISOString()}] Manual blog generation with auto-publish triggered`,
+  );
+  try {
+    await runBlogGeneration(true);
+    res.json({
+      success: true,
+      message: "Blog generation and publish completed",
+    });
+  } catch (error) {
+    console.error("Manual blog publish error:", error);
+    res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
+// Start HTTP server
+app.listen(PORT, () => {
+  console.log(
+    `[${new Date().toISOString()}] HTTP server listening on port ${PORT}`,
+  );
+});
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog generation: 10:00 UTC Mon/Thu.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog drafts: 10:00 UTC Mon/Thu, Blog auto-publish: 10:00 UTC Tue/Fri.`,
 );
