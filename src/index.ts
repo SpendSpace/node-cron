@@ -785,13 +785,15 @@ async function publishToMarketingSite(post: {
   }
 }
 
-// Blog generation - runs Monday and Thursday at 10:00 UTC (4:00 AM CST)
+// Blog generation - SUSPENDED
+// Runs Monday and Thursday at 10:00 UTC (4:00 AM CST)
 // This saves to drafts for manual review
-cron.schedule("00 10 * * 1,4", () => runBlogGeneration(false));
+// cron.schedule("00 10 * * 1,4", () => runBlogGeneration(false));
 
-// Auto-publish blog generation - runs Tuesday and Friday at 10:00 UTC
+// Auto-publish blog generation - SUSPENDED
+// Runs Tuesday and Friday at 10:00 UTC
 // This generates and publishes directly without review
-cron.schedule("00 10 * * 2,5", () => runBlogGeneration(true));
+// cron.schedule("00 10 * * 2,5", () => runBlogGeneration(true));
 
 // ============================================
 // HTTP Endpoints for Manual Triggers
@@ -852,5 +854,5 @@ app.listen(PORT, () => {
 });
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog drafts: 10:00 UTC Mon/Thu, Blog auto-publish: 10:00 UTC Tue/Fri.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog generation: SUSPENDED.`,
 );
