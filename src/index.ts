@@ -10,10 +10,7 @@ const SECURITY_SERVICE_URL =
   process.env.SECURITY_SERVICE_URL ||
   "https://spendspace-security.up.railway.app";
 const CRON_SECRET = process.env.CRON_SECRET;
-const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY;
 const BLOG_ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL || "jlew24asu@gmail.com";
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent";
 
 async function runBudgetAlerts() {
   console.log(`[${new Date().toISOString()}] Running budget alert check...`);
@@ -402,34 +399,37 @@ const SEO_TOPICS = [
   },
 ];
 
-async function callGemini(prompt: string): Promise<string> {
-  if (!GOOGLE_AI_API_KEY) {
-    throw new Error("GOOGLE_AI_API_KEY not configured");
+async function callOpenRouter(prompt: string): Promise<string> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY not configured");
   }
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GOOGLE_AI_API_KEY}`, {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://spendspace.io",
+      "X-Title": "SpendSpace",
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 8192,
-      },
+      model: "anthropic/claude-haiku-4-5",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 8192,
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${error}`);
+    throw new Error(`OpenRouter API error: ${response.status} - ${error}`);
   }
 
   const data = (await response.json()) as {
-    candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
+    choices: Array<{ message: { content: string } }>;
   };
-  return data.candidates[0].content.parts[0].text;
+  return data.choices[0].message.content;
 }
 
 function slugify(text: string): string {
@@ -552,7 +552,7 @@ async function generateBlogPost(): Promise<{
   const prompt = buildSEOPrompt(topic);
 
   try {
-    const response = await callGemini(prompt);
+    const response = await callOpenRouter(prompt);
 
     // Extract JSON from response
     let jsonStr = response;
@@ -657,9 +657,9 @@ async function runBlogGeneration(autoPublish: boolean = false) {
     `[${new Date().toISOString()}] Running blog content generation (autoPublish: ${autoPublish})...`,
   );
 
-  if (!GOOGLE_AI_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY) {
     console.error(
-      "GOOGLE_AI_API_KEY not configured - skipping blog generation",
+      "OPENROUTER_API_KEY not configured - skipping blog generation",
     );
     return;
   }
