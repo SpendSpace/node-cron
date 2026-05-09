@@ -11,6 +11,7 @@ const SECURITY_SERVICE_URL =
   "https://spendspace-security.up.railway.app";
 const CRON_SECRET = process.env.CRON_SECRET;
 const BLOG_ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL || "jlew24asu@gmail.com";
+const SYNC_ENABLED = process.env.SYNC_ENABLED !== "false";
 
 async function runBudgetAlerts() {
   console.log(`[${new Date().toISOString()}] Running budget alert check...`);
@@ -47,6 +48,11 @@ cron.schedule("00 09 * * *", runBudgetAlerts);
  * Syncs transactions for all SimpleFIN connections and sends alerts for failures
  */
 async function runSimpleFINSync() {
+  if (!SYNC_ENABLED) {
+    console.log(`[${new Date().toISOString()}] SimpleFIN sync skipped — SYNC_ENABLED=false`);
+    return;
+  }
+
   console.log(`[${new Date().toISOString()}] Running SimpleFIN sync...`);
 
   if (!CRON_SECRET) {
@@ -116,6 +122,11 @@ cron.schedule("00 */6 * * *", runSimpleFINSync);
  * Syncs transactions for all Lunch Flow connections and sends alerts for failures
  */
 async function runLunchFlowSync() {
+  if (!SYNC_ENABLED) {
+    console.log(`[${new Date().toISOString()}] Lunch Flow sync skipped — SYNC_ENABLED=false`);
+    return;
+  }
+
   console.log(`[${new Date().toISOString()}] Running Lunch Flow sync...`);
 
   if (!CRON_SECRET) {
@@ -814,7 +825,7 @@ const verifyCronSecret = (
 
 // Health check
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ status: "ok", timestamp: new Date().toISOString(), syncEnabled: SYNC_ENABLED });
 });
 
 // Manual blog generation (saves as draft)
@@ -854,5 +865,5 @@ app.listen(PORT, () => {
 });
 
 console.log(
-  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog generation: SUSPENDED.`,
+  `[${new Date().toISOString()}] Cron service started. Budget alerts: 9:00 UTC daily, SimpleFIN sync: every 6h (:00), Lunch Flow sync: every 6h (:30), Weekly summary: 14:00 UTC Sundays, Blog generation: SUSPENDED. Data syncs: ${SYNC_ENABLED ? "ENABLED" : "DISABLED (SYNC_ENABLED=false)"}.`,
 );
