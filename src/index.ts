@@ -796,14 +796,17 @@ async function publishToMarketingSite(post: {
   }
 }
 
-// Blog generation - SUSPENDED
+// Blog generation - drafts only
 // Runs Monday and Thursday at 10:00 UTC (4:00 AM CST)
-// This saves to drafts for manual review
-// cron.schedule("00 10 * * 1,4", () => runBlogGeneration(false));
+// Generates a draft + emails for review; you publish manually after editing.
+// Uses Claude Haiku 4.5 via OpenRouter (~$0.02-0.04 per post).
+cron.schedule("00 10 * * 1,4", () => runBlogGeneration(false));
 
 // Auto-publish blog generation - SUSPENDED
 // Runs Tuesday and Friday at 10:00 UTC
-// This generates and publishes directly without review
+// Each run generates a NEW post (it does not publish the Mon/Thu drafts) and
+// publishes it immediately without review. Keep disabled unless you want
+// unreviewed content going live and 4× the LLM cost.
 // cron.schedule("00 10 * * 2,5", () => runBlogGeneration(true));
 
 // ============================================
