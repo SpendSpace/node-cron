@@ -10,7 +10,6 @@ const SECURITY_SERVICE_URL =
   process.env.SECURITY_SERVICE_URL ||
   "https://spendspace-security.up.railway.app";
 const CRON_SECRET = process.env.CRON_SECRET;
-const BLOG_ADMIN_EMAIL = process.env.BLOG_ADMIN_EMAIL || "jlew24asu@gmail.com";
 const SYNC_ENABLED = process.env.SYNC_ENABLED !== "false";
 
 async function runBudgetAlerts() {
@@ -600,69 +599,6 @@ async function generateBlogPost(): Promise<{
   }
 }
 
-async function sendBlogNotificationEmail(post: {
-  title: string;
-  slug: string;
-  excerpt: string;
-  date: string;
-}) {
-  if (!CRON_SECRET) {
-    console.error("CRON_SECRET not configured for email");
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_URL}/email/send`, {
-      method: "POST",
-      headers: {
-        "x-cron-secret": CRON_SECRET,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: BLOG_ADMIN_EMAIL,
-        subject: `📝 New Blog Draft Ready: ${post.title}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #2563eb;">New Blog Post Draft Generated</h1>
-            <p>A new blog post draft has been automatically generated and is ready for your review.</p>
-            
-            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h2 style="margin-top: 0; color: #1f2937;">${post.title}</h2>
-              <p style="color: #6b7280;">${post.excerpt}</p>
-              <p style="color: #9ca3af; font-size: 14px;">Generated: ${post.date}</p>
-            </div>
-            
-            <h3>Next Steps:</h3>
-            <ol>
-              <li>Review the draft in <code>drafts/${post.slug}.json</code></li>
-              <li>Edit content and update image URL if needed</li>
-              <li>Run: <code>node scripts/publish-blog-post.js ${post.slug}</code></li>
-              <li>Deploy changes to publish</li>
-            </ol>
-            
-            <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-              This is an automated message from SpendSpace Blog System.
-            </p>
-          </div>
-        `,
-      }),
-    });
-
-    if (response.ok) {
-      console.log(
-        `[${new Date().toISOString()}] Blog notification email sent to ${BLOG_ADMIN_EMAIL}`,
-      );
-    } else {
-      console.error(
-        `[${new Date().toISOString()}] Failed to send blog notification email:`,
-        await response.text(),
-      );
-    }
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Email error:`, error);
-  }
-}
-
 async function runBlogGeneration(autoPublish: boolean = false) {
   console.log(
     `[${new Date().toISOString()}] Running blog content generation (autoPublish: ${autoPublish})...`,
@@ -729,11 +665,6 @@ async function runBlogGeneration(autoPublish: boolean = false) {
           `[${new Date().toISOString()}] Draft storage API error:`,
           err,
         );
-      }
-
-      // Send notification email (only for drafts, not auto-publish)
-      if (!autoPublish) {
-        await sendBlogNotificationEmail(post);
       }
     }
   } catch (error) {
