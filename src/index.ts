@@ -194,6 +194,85 @@ async function runLunchFlowSync() {
 cron.schedule("30 */6 * * *", runLunchFlowSync);
 
 /**
+ * SnapTrade Connection Check
+ * Marks investment accounts whose brokerage connection SnapTrade has disabled
+ * and sends alerts. Disabled connections stop sending webhooks, so without
+ * this nothing notices them.
+ */
+async function runSnapTradeConnectionCheck() {
+  if (!SYNC_ENABLED) {
+    console.log(`[${new Date().toISOString()}] SnapTrade connection check skipped — SYNC_ENABLED=false`);
+    return;
+  }
+
+  console.log(`[${new Date().toISOString()}] Running SnapTrade connection check...`);
+
+  if (!CRON_SECRET) {
+    console.error("CRON_SECRET not configured");
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${SECURITY_SERVICE_URL}/api/snaptrade/cron/check`,
+      {
+        method: "POST",
+        headers: {
+          "x-cron-secret": CRON_SECRET,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const data = (await response.json()) as {
+      success: boolean;
+      data?: { failures?: Array<unknown> };
+    };
+    console.log(
+      `[${new Date().toISOString()}] SnapTrade connection check result:`,
+      JSON.stringify(data),
+    );
+
+    // Send connection alerts for any disabled connections
+    if (data.success && data.data?.failures && data.data.failures.length > 0) {
+      console.log(
+        `[${new Date().toISOString()}] Sending connection alerts for ${data.data.failures.length} SnapTrade failure(s)...`,
+      );
+
+      try {
+        const alertResponse = await fetch(`${API_URL}/connection-alerts/send`, {
+          method: "POST",
+          headers: {
+            "x-cron-secret": CRON_SECRET!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ failures: data.data.failures }),
+        });
+
+        const alertData = await alertResponse.json();
+        console.log(
+          `[${new Date().toISOString()}] Connection alert result:`,
+          JSON.stringify(alertData),
+        );
+      } catch (alertError) {
+        console.error(
+          `[${new Date().toISOString()}] Connection alert error:`,
+          alertError,
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      `[${new Date().toISOString()}] SnapTrade connection check error:`,
+      error,
+    );
+  }
+}
+
+// SnapTrade connection check - runs every 6 hours at :15 (00:15, 06:15, 12:15, 18:15 UTC)
+cron.schedule("15 */6 * * *", runSnapTradeConnectionCheck);
+
+/**
  * Weekly Budget Summary Emails
  * Sends weekly budget summary emails to users who have opted in
  */
