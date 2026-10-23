@@ -2,6 +2,11 @@
 builder = "DOCKERFILE"
 
 [deploy]
+# This service serves /health (src/index.ts), not /api/health. The dashboard
+# had the healthcheck pointed at /api/health, which 404s on every attempt, so
+# deploys failed their healthcheck even though the process was running fine.
+# Declaring it here keeps it in version control and out of dashboard drift.
+healthcheckPath = "/health"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
