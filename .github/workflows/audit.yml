@@ -1,0 +1,49 @@
+# Scheduled drift detector.
+#
+# ci.yml only runs when you push. This runs whether or not anyone touched the
+# repo, because the risk being watched for is a NEW advisory published against
+# a package that was already fine when it was installed.
+#
+# NOTE: GitHub only runs `schedule:` triggers on the DEFAULT BRANCH. This file
+# does nothing until it is merged to main.
+name: Dependency audit
+
+on:
+  schedule:
+    # Mondays 14:00 UTC, a few hours after Dependabot's weekly run
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Production advisories
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Audit production dependencies in every npm project
+        run: |
+          status=0
+          locks=$(find . -name package-lock.json -not -path '*/node_modules/*' | sort)
+          for lock in $locks; do
+            dir=$(dirname "$lock")
+            echo "::group::$dir"
+            if (cd "$dir" && npm audit --omit=dev --audit-level=high); then
+              echo "no high or critical production advisories"
+            else
+              echo "::error file=$dir/package-lock.json::High or critical production advisory in $dir"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $status

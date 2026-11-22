@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Build (tsc)
+        run: npm run build
+
+      # NOTE: no lint or test step -- this repo declares neither script.
+
+  # Auto-discovers EVERY npm project in the repo so a new one can never go
+  # unchecked the way spendspace-api/functions/ did.
+  lockfiles:
+    name: Lockfile sync + prod audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Check every npm project
+        run: |
+          status=0
+          locks=$(find . -name package-lock.json -not -path '*/node_modules/*' | sort)
+          echo "Discovered npm projects:"
+          echo "$locks" | sed 's|/package-lock.json||; s|^|  |'
+          echo ""
+          for lock in $locks; do
+            dir=$(dirname "$lock")
+            echo "::group::$dir"
+
+            # npm ci can fail for several different reasons. Say which
+            # one, instead of always blaming the lockfile.
+            if out=$(cd "$dir" && npm ci --dry-run --no-audit --no-fund 2>&1); then
+              echo "lockfile is in sync"
+            else
+              echo "$out" | tail -40
+              if echo "$out" | grep -q EUSAGE; then
+                echo "::error file=$dir/package.json::Lockfile out of sync with package.json. Fix: cd $dir && npm install --package-lock-only"
+              elif echo "$out" | grep -q ERESOLVE; then
+                echo "::error file=$dir/package.json::Dependency CONFLICT (ERESOLVE) in $dir - NOT a lockfile desync, so regenerating the lockfile will not fix it. See the peer dependency conflict above."
+              else
+                echo "::error file=$dir/package.json::npm ci failed in $dir - see log above"
+              fi
+              status=1
+            fi
+
+            # Non-blocking: a brand-new advisory should not break an unrelated
+            # push. The scheduled audit.yml run is what reports drift.
+            (cd "$dir" && npm audit --omit=dev) || echo "::warning file=$dir/package-lock.json::Production advisories present in $dir"
+
+            echo "::endgroup::"
+          done
+          exit $status
