@@ -1,7 +1,17 @@
 version: 2
+
+# GROUPING POLICY
+#
+# Groups match ONLY minor and patch updates. Majors deliberately match no
+# group, so Dependabot opens one PR per major instead of welding them into
+# the grouped PR.
+#
+# Why: with `patterns: ["*"]` and no update-types filter, the sibling repos
+# each produced a single PR carrying 7-11 majors bolted to safe updates --
+# unmergeable as a unit, so nothing got merged, security patches included.
+# This repo is small enough that it has not hit that yet; the split is here
+# so it never does.
 updates:
-  # Plural 'directories' (not 'directory') so additional npm projects added
-  # under this repo are picked up by listing them here.
   - package-ecosystem: "npm"
     directories:
       - "/"
@@ -9,9 +19,9 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "jlew2"
+    # Raised from 10: the grouped minor/patch PRs now share the quota with
+    # one PR per outstanding major.
+    open-pull-requests-limit: 15
     labels:
       - "dependencies"
       - "security"
@@ -19,7 +29,9 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      production-dependencies:
+      production-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "*"
         exclude-patterns:
@@ -27,7 +39,9 @@ updates:
           - "eslint*"
           - "prettier"
           - "typescript"
-      development-dependencies:
+      development-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns:
           - "@types/*"
           - "eslint*"
