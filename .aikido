@@ -1,0 +1,30 @@
+# Aikido scan configuration -- https://help.aikido.dev/code-scanning/scanning-practices/ignore-via-code-with-aikido-files
+#
+# Every CVE below is a FALSE POSITIVE caused by range-floor matching.
+#
+# Aikido matches advisories against the LOWEST version a declared semver range
+# permits, instead of the version npm actually resolved in package-lock.json.
+# The ranges that trigger these are declared inside THIRD-PARTY package
+# manifests (express, firebase-admin, @google-cloud/storage, @grpc/*), so no
+# change in this repo -- including npm "overrides" -- can clear them. The
+# overrides here already install safe versions; Aikido just doesn't read them.
+#
+# Reproducer: express declares "proxy-addr": "~2.0.7". npm installs 2.0.8.
+# CVE-2026-90711 affects ">= 1.1.0, < 2.0.8". Installed 2.0.8 is NOT affected,
+# but the range floor 2.0.7 is -- so it is reported.
+#
+# BACKSTOP: these are version-blind suppressions, so they are paired with the
+# "Lockfile sync + prod audit" CI job, which runs `npm audit --omit=dev`
+# against RESOLVED versions and would still catch a genuine regression in any
+# package listed here. Do not remove that job while this file exists.
+#
+# Verified 2026-11-23 against the GitHub Advisory Database.
+# Regenerate rather than hand-edit.
+
+ignore:
+  cves:
+
+    # --- proxy-addr: installed 2.0.8 (safe) -- 1 false positive
+    # triggered by: express declares "~2.0.7"
+    CVE-2026-90711:
+      reason: "False positive (critical). proxy-addr 2.0.8 is installed; this advisory is patched in 2.0.8. Reported only because a third-party manifest declares a range whose floor is vulnerable. See GHSA-jqcg-44mw-7w3h."
